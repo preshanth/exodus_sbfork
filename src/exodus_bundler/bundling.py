@@ -590,6 +590,7 @@ class File:
                 full_linker=full_linker)
             with open(source_path, 'wb') as f:
                 f.write(launcher_content)
+            tt = source_path
         except CompilerNotFoundError:
             if not shell_launcher:
                 logger.warning((
