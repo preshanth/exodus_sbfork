@@ -32,54 +32,70 @@ from exodus_bundler.templating import render_template_file
 logger = logging.getLogger(__name__)
 
 
-def bytes_to_int(bytes, byteorder='big'):
+def bytes_to_int(bytes, byteorder="big"):
     """Simple helper function to convert byte strings into integers."""
-    endian = {'big': '>', 'little': '<'}[byteorder]
-    chars = struct.unpack(endian + ('B' * len(bytes)), bytes)
-    if byteorder == 'big':
+    endian = {"big": ">", "little": "<"}[byteorder]
+    chars = struct.unpack(endian + ("B" * len(bytes)), bytes)
+    if byteorder == "big":
         chars = chars[::-1]
-    return sum(int(char) * 256 ** i for (i, char) in enumerate(chars))
+    return sum(int(char) * 256**i for (i, char) in enumerate(chars))
 
 
-def create_bundle(executables, output, tarball=False, rename=[], chroot=None, add=[],
-                  no_symlink=[], shell_launchers=False, detect=False):
+def create_bundle(
+    executables,
+    output,
+    tarball=False,
+    rename=[],
+    chroot=None,
+    add=[],
+    no_symlink=[],
+    shell_launchers=False,
+    detect=False,
+):
     """Handles the creation of the full bundle."""
     # Initialize these ahead of time so they're always available for error handling.
     output_filename, output_file, root_directory = None, None, None
     try:
-
         # Create a temporary unpackaged bundle for the executables.
         root_directory = create_unpackaged_bundle(
-            executables, rename=rename, chroot=chroot, add=add, no_symlink=no_symlink,
-            shell_launchers=shell_launchers, detect=detect,
+            executables,
+            rename=rename,
+            chroot=chroot,
+            add=add,
+            no_symlink=no_symlink,
+            shell_launchers=shell_launchers,
+            detect=detect,
         )
 
         # Populate the filename template.
-        output_filename = render_template(output,
-            executables=('-'.join(os.path.basename(executable) for executable in executables)),
-            extension=('tgz' if tarball else 'sh'),
+        output_filename = render_template(
+            output,
+            executables=("-".join(os.path.basename(executable) for executable in executables)),
+            extension=("tgz" if tarball else "sh"),
         )
 
         # Store a gzipped tarball of the bundle in memory.
         tar_stream = io.BytesIO()
-        with tarfile.open(fileobj=tar_stream, mode='w:gz') as tar:
-            tar.add(root_directory, arcname='exodus')
+        with tarfile.open(fileobj=tar_stream, mode="w:gz") as tar:
+            tar.add(root_directory, arcname="exodus")
 
         # Configure the appropriate output mechanism.
-        if output_filename == '-':
+        if output_filename == "-":
             output_file = sys.stdout.buffer
         else:
-            output_file = open(output_filename, 'wb')
+            output_file = open(output_filename, "wb")
 
         # Construct the installation script and write it out.
         if not tarball:
-            if output_filename == '-':
-                base64_encoded_tarball = base64.b64encode(tar_stream.getvalue()).decode('utf-8')
-                script_content = render_template_file('install-bundle-noninteractive.sh',
-                    base64_encoded_tarball=base64_encoded_tarball)
-                output_file.write(script_content.encode('utf-8'))
+            if output_filename == "-":
+                base64_encoded_tarball = base64.b64encode(tar_stream.getvalue()).decode("utf-8")
+                script_content = render_template_file(
+                    "install-bundle-noninteractive.sh",
+                    base64_encoded_tarball=base64_encoded_tarball,
+                )
+                output_file.write(script_content.encode("utf-8"))
             else:
-                output_file.write(render_template_file('install-bundle.sh').encode('utf-8'))
+                output_file.write(render_template_file("install-bundle.sh").encode("utf-8"))
                 output_file.write(tar_stream.getvalue())
         else:
             # Or just write out the tarball.
@@ -95,25 +111,33 @@ def create_bundle(executables, output, tarball=False, rename=[], chroot=None, ad
             shutil.rmtree(root_directory)
         if output_file and output_filename:
             output_file.close()
-            if not tarball and output_filename not in ['-', '/dev/null']:
+            if not tarball and output_filename not in ["-", "/dev/null"]:
                 st = os.stat(output_filename)
                 os.chmod(output_filename, st.st_mode | stat.S_IEXEC)
 
 
-def create_unpackaged_bundle(executables, rename=[], chroot=None, add=[], no_symlink=[],
-                             shell_launchers=False, detect=False):
+def create_unpackaged_bundle(
+    executables,
+    rename=[],
+    chroot=None,
+    add=[],
+    no_symlink=[],
+    shell_launchers=False,
+    detect=False,
+):
     """Creates a temporary directory containing the unpackaged contents of the bundle."""
     bundle = Bundle(chroot=chroot, working_directory=True)
     try:
         # Sanitize the inputs.
-        assert len(executables), 'No executables were specified.'
-        assert len(executables) >= len(rename), \
-            'More renamed options were included than executables.'
+        assert len(executables), "No executables were specified."
+        assert len(executables) >= len(
+            rename
+        ), "More renamed options were included than executables."
         # Pad the rename's with `True` so that `entry_point` can be specified.
         entry_points = rename + [True for i in range(len(executables) - len(rename))]
 
         # Populate the bundle with main executable files and their dependencies.
-        for (executable, entry_point) in zip(executables, entry_points):
+        for executable, entry_point in zip(executables, entry_points):
             file = bundle.add_file(executable, entry_point=entry_point)
 
             # We'll only auto-detect dependencies for these entry points as well.
@@ -122,11 +146,13 @@ def create_unpackaged_bundle(executables, rename=[], chroot=None, add=[], no_sym
                 dependency_paths = detect_dependencies(file.path)
                 if not dependency_paths:
                     raise DependencyDetectionError(
-                        ('Automatic dependency detection failed. Either "%s" ' % file.path) +
-                        'is not tracked by your package manager, or your operating system '
-                        'is not currently compatible with the `--detect` option. If not, please '
-                        "create an issue at https://github.com/intoli/exodus and we'll try our "
-                        ' to add support for it in the future.',
+                        (
+                            'Automatic dependency detection failed. Either "%s" ' % file.path
+                            + "is not tracked by your package manager, or your operating system "
+                            + "is not currently compatible with the `--detect` option. If not, please "
+                            + "create an issue at https://github.com/intoli/exodus and we'll try our "
+                            + " to add support for it in the future."
+                        ),
                     )
 
                 for path in dependency_paths:
@@ -156,26 +182,26 @@ def detect_elf_binary(filename):
     if not os.path.exists(filename):
         raise MissingFileError(f'The "{filename}" file was not found.')
 
-    with open(filename, 'rb') as f:
+    with open(filename, "rb") as f:
         first_four_bytes = f.read(4)
 
-    return first_four_bytes == b'\x7fELF'
+    return first_four_bytes == b"\x7fELF"
 
 
 def parse_dependencies_from_ldd_output(content):
     """Takes the output of `ldd` as a string or list of lines and parses the dependencies."""
-    if type(content) == str:
-        content = content.split('\n')
+    if isinstance(content, str):
+        content = content.split("\n")
 
     dependencies = []
     for line in content:
         # This first one is a special case of invoking the linker as `ldd`.
-        if re.search(r'^\s*(/.*?)\s*=>\s*ldd\s*\(', line):
+        if re.search(r"^\s*(/.*?)\s*=>\s*ldd\s*\(", line):
             # We'll exclude this because it's the hardcoded INTERP path, and it would be
             # impossible to get the full path from this command output.
             continue
-        match = re.search(r'=>\s*(/.*?)\s*\(', line)
-        match = match or re.search(r'\s*(/.*?)\s*\(', line)
+        match = re.search(r"=>\s*(/.*?)\s*\(", line)
+        match = match or re.search(r"\s*(/.*?)\s*\(", line)
         if match:
             dependencies.append(match.group(1))
 
@@ -186,7 +212,7 @@ def resolve_binary(binary):
     """Attempts to find the absolute path to the binary."""
     absolute_binary_path = os.path.normpath(os.path.abspath(binary))
     if not os.path.exists(absolute_binary_path):
-        for path in os.getenv('PATH', '/bin/:/usr/bin/').split(os.pathsep):
+        for path in os.getenv("PATH", "/bin/:/usr/bin/").split(os.pathsep):
             absolute_binary_path = os.path.normpath(os.path.abspath(os.path.join(path, binary)))
             if os.path.exists(absolute_binary_path):
                 break
@@ -221,13 +247,14 @@ def run_ldd(ldd, binary):
 
     process = Popen([ldd, binary], stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate()
-    return stdout.decode('utf-8').split('\n') + stderr.decode('utf-8').split('\n')
+    return stdout.decode("utf-8").split("\n") + stderr.decode("utf-8").split("\n")
 
 
 class stored_property:
     """Simple decorator for a class property that will be cached indefinitely."""
+
     def __init__(self, function):
-        self.__doc__ = getattr(function, '__doc__')
+        self.__doc__ = getattr(function, "__doc__")
         self.function = function
 
     def __get__(self, instance, type):
@@ -246,6 +273,7 @@ class Elf:
         path (str): The path to the file.
         type (str): The binary type, one of 'relocatable', 'executable', 'shared', or 'core'.
     """
+
     def __init__(self, path, chroot=None, file_factory=None):
         """Constructs the `Elf` instance.
 
@@ -261,56 +289,60 @@ class Elf:
         self.chroot = chroot
         self.file_factory = file_factory or File
 
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             # Make sure that this is actually an ELF binary.
             first_four_bytes = f.read(4)
-            if first_four_bytes != b'\x7fELF':
+            if first_four_bytes != b"\x7fELF":
                 raise InvalidElfBinaryError(f'The "{path}" file is not a binary ELF file.')
 
             # Determine whether this is a 32-bit or 64-bit file.
             format_byte = f.read(1)
-            self.bits = {b'\x01': 32, b'\x02': 64}.get(format_byte)
+            self.bits = {b"\x01": 32, b"\x02": 64}.get(format_byte)
             if not self.bits:
                 raise UnsupportedArchitectureError(
-                    ('The "%s" file does not appear to be either 32 or 64 bits. ' % path) +
-                    'Other architectures are not currently supported, but you can open an '
-                    'issue at https://github.com/intoli/exodus stating your use-case and '
-                    'support might get extended in the future.',
+                    (
+                        'The "%s" file does not appear to be either 32 or 64 bits. ' % path
+                        + "Other architectures are not currently supported, but you can open an "
+                        + "issue at https://github.com/intoli/exodus stating your use-case and "
+                        + "support might get extended in the future."
+                    ),
                 )
 
             # Determine whether it's big or little endian and construct an integer parsing function.
             endian_byte = f.read(1)
-            byteorder = {b'\x01': 'little', b'\x02': 'big'}[endian_byte]
-            assert byteorder == 'little', 'Big endian is not supported right now.'
+            byteorder = {b"\x01": "little", b"\x02": "big"}[endian_byte]
+            assert byteorder == "little", "Big endian is not supported right now."
             if not byteorder:
                 raise UnsupportedArchitectureError(
-                    ('The "%s" file does not appear to be little endian, ' % path) +
-                    'and big endian binaries are not currently supported. You can open an '
-                    'issue at https://github.com/intoli/exodus stating your use-case and '
-                    'support might get extended in the future.',
+                    (
+                        'The "%s" file does not appear to be little endian, ' % path
+                        + "and big endian binaries are not currently supported. You can open an "
+                        + "issue at https://github.com/intoli/exodus stating your use-case and "
+                        + "support might get extended in the future."
+                    ),
                 )
 
             def hex(bytes):
                 return bytes_to_int(bytes, byteorder=byteorder)
 
             # Determine the type of the binary.
-            f.seek(hex(b'\x10'))
+            f.seek(hex(b"\x10"))
             e_type = hex(f.read(2))
-            self.type = {1: 'relocatable', 2: 'executable', 3: 'shared', 4: 'core'}[e_type]
+            self.type = {1: "relocatable", 2: "executable", 3: "shared", 4: "core"}[e_type]
 
             # Find the program header offset.
-            e_phoff_start = {32: hex(b'\x1c'), 64: hex(b'\x20')}[self.bits]
+            e_phoff_start = {32: hex(b"\x1c"), 64: hex(b"\x20")}[self.bits]
             e_phoff_length = {32: 4, 64: 8}[self.bits]
             f.seek(e_phoff_start)
             e_phoff = hex(f.read(e_phoff_length))
 
             # Determine the size of a program header entry.
-            e_phentsize_start = {32: hex(b'\x2a'), 64: hex(b'\x36')}[self.bits]
+            e_phentsize_start = {32: hex(b"\x2a"), 64: hex(b"\x36")}[self.bits]
             f.seek(e_phentsize_start)
             e_phentsize = hex(f.read(2))
 
             # Determine the number of program header entries.
-            e_phnum_start = {32: hex(b'\x2c'), 64: hex(b'\x38')}[self.bits]
+            e_phnum_start = {32: hex(b"\x2c"), 64: hex(b"\x38")}[self.bits]
             f.seek(e_phnum_start)
             e_phnum = hex(f.read(2))
 
@@ -323,17 +355,17 @@ class Elf:
                 # A p_type of \x03 corresponds to a PT_INTERP header (e.g. the linker).
                 if len(p_type) == 0:
                     break
-                if not p_type == b'\x03\x00\x00\x00':
+                if not p_type == b"\x03\x00\x00\x00":
                     continue
 
                 # Determine the offset for the segment.
-                p_offset_start = header_start + {32: hex(b'\04'), 64: hex(b'\x08')}[self.bits]
+                p_offset_start = header_start + {32: hex(b"\04"), 64: hex(b"\x08")}[self.bits]
                 p_offset_length = {32: 4, 64: 8}[self.bits]
                 f.seek(p_offset_start)
                 p_offset = hex(f.read(p_offset_length))
 
                 # Determine the size of the segment.
-                p_filesz_start = header_start + {32: hex(b'\x10'), 64: hex(b'\x20')}[self.bits]
+                p_filesz_start = header_start + {32: hex(b"\x10"), 64: hex(b"\x20")}[self.bits]
                 p_filesz_length = {32: 4, 64: 8}[self.bits]
                 f.seek(p_filesz_start)
                 p_filesz = hex(f.read(p_filesz_length))
@@ -342,11 +374,11 @@ class Elf:
                 f.seek(p_offset)
                 segment = f.read(p_filesz)
                 # It should be null-terminated (b'\x00' in Python 2, 0 in Python 3).
-                assert segment[-1] in [b'\x00', 0], 'The string should be null terminated.'
-                assert self.linker_file is None, 'More than one linker found.'
-                linker_path = segment[:-1].decode('ascii')
+                assert segment[-1] in [b"\x00", 0], "The string should be null terminated."
+                assert self.linker_file is None, "More than one linker found."
+                linker_path = segment[:-1].decode("ascii")
                 if chroot:
-                    linker_path = os.path.join(chroot, os.path.relpath(linker_path, '/'))
+                    linker_path = os.path.join(chroot, os.path.relpath(linker_path, "/"))
                 self.linker_file = self.file_factory(linker_path, chroot=self.chroot)
 
     def __eq__(self, other):
@@ -367,31 +399,37 @@ class Elf:
         linker_path = linker_file.path
         environment = {}
         environment.update(os.environ)
-        environment['LD_TRACE_LOADED_OBJECTS'] = '1'
+        environment["LD_TRACE_LOADED_OBJECTS"] = "1"
         extra_ldd_arguments = []
         if self.chroot:
-            ld_library_path = '/lib64:/usr/lib64:/lib/:/usr/lib:/lib32/:/usr/lib32/:'
-            ld_library_path += environment.get('LD_LIBRARY_PATH', '')
+            ld_library_path = "/lib64:/usr/lib64:/lib/:/usr/lib:/lib32/:/usr/lib32/:"
+            ld_library_path += environment.get("LD_LIBRARY_PATH", "")
             directories = []
-            for directory in ld_library_path.split(':'):
+            for directory in ld_library_path.split(":"):
                 if os.path.isabs(directory):
-                    directory = os.path.join(self.chroot, os.path.relpath(directory, '/'))
+                    directory = os.path.join(self.chroot, os.path.relpath(directory, "/"))
                 directories.append(directory)
-            ld_library_path = ':'.join(directories)
-            environment['LD_LIBRARY_PATH'] = ld_library_path
+            ld_library_path = ":".join(directories)
+            environment["LD_LIBRARY_PATH"] = ld_library_path
             # We only need to avoid including system dependencies if there's a chroot set.
-            extra_ldd_arguments += ['--inhibit-cache', '--inhibit-rpath', '']
+            extra_ldd_arguments += ["--inhibit-cache", "--inhibit-rpath", ""]
 
-        process = Popen(['ldd'] + extra_ldd_arguments + [self.path],
-                        executable=linker_path, stdout=PIPE, stderr=PIPE, env=environment)
+        process = Popen(
+            ["ldd"] + extra_ldd_arguments + [self.path],
+            executable=linker_path,
+            stdout=PIPE,
+            stderr=PIPE,
+            env=environment,
+        )
         stdout, stderr = process.communicate()
-        combined_output = stdout.decode('utf-8').split('\n') + stderr.decode('utf-8').split('\n')
+        combined_output = stdout.decode("utf-8").split("\n") + stderr.decode("utf-8").split("\n")
         # Note that we're explicitly adding the linker because when we invoke it as `ldd` we can't
         # extract the real path from the trace output. Even if it were here twice, it would be
         # deduplicated though the use of a set.
         filenames = parse_dependencies_from_ldd_output(combined_output) + [linker_path]
-        return set(self.file_factory(filename, chroot=self.chroot, library=True)
-                   for filename in filenames)
+        return set(
+            self.file_factory(filename, chroot=self.chroot, library=True) for filename in filenames
+        )
 
     @stored_property
     def dependencies(self):
@@ -404,7 +442,8 @@ class Elf:
             for dependency in unprocessed_dependencies:
                 if dependency.elf:
                     new_dependencies |= set(
-                        dependency.elf.find_direct_dependencies(self.linker_file))
+                        dependency.elf.find_direct_dependencies(self.linker_file)
+                    )
             unprocessed_dependencies = new_dependencies - all_dependencies
         return all_dependencies
 
@@ -450,7 +489,7 @@ class File:
 
         # Set the entry point for the file.
         if entry_point is True:
-            self.entry_point = os.path.basename(self.path).replace(os.sep, '')
+            self.entry_point = os.path.basename(self.path).replace(os.sep, "")
         else:
             self.entry_point = entry_point or None
 
@@ -466,8 +505,11 @@ class File:
         self.no_symlink = self.entry_point and not self.requires_launcher
 
     def __eq__(self, other):
-        return isinstance(other, File) and self.path == self.path and \
-            self.entry_point == self.entry_point
+        return (
+            isinstance(other, File)
+            and self.path == other.path
+            and self.entry_point == other.entry_point
+        )
 
     def __hash__(self):
         """Computes a hash for the instance unique up to the file path and entry point."""
@@ -509,15 +551,21 @@ class File:
             bundle_root (str): The root that `source` will be joined with.
         """
         source_path = os.path.join(bundle_root, self.source)
-        bin_directory = os.path.join(working_directory, 'bin')
+        bin_directory = os.path.join(working_directory, "bin")
         if not os.path.exists(bin_directory):
             os.makedirs(bin_directory)
         entry_point_path = os.path.join(bin_directory, self.entry_point)
-        relative_destination_path = os.path.relpath(source_path, bin_directory)+".sh"
+        relative_destination_path = os.path.relpath(source_path, bin_directory) + ".sh"
         os.symlink(relative_destination_path, entry_point_path)
 
-    def create_launcher(self, working_directory, bundle_root, linker_basename, symlink_basename,
-                        shell_launcher=False):
+    def create_launcher(
+        self,
+        working_directory,
+        bundle_root,
+        linker_basename,
+        symlink_basename,
+        shell_launcher=False,
+    ):
         """Creates a launcher at `source` for `destination`.
 
         Note:
@@ -542,21 +590,29 @@ class File:
         relative_destination_path = os.path.relpath(destination_path, source_parent)
         symlink_path = os.path.join(source_parent, symlink_basename)
         os.symlink(relative_destination_path, symlink_path)
-        executable = os.path.join('.', symlink_basename)
+        executable = os.path.join(".", symlink_basename)
 
         # Copy over the linker.
         linker_path = os.path.join(source_parent, linker_basename)
         if not os.path.exists(linker_path):
             shutil.copy(self.elf.linker_file.path, linker_path)
         else:
-            assert filecmp.cmp(self.elf.linker_file.path, linker_path), \
+            assert filecmp.cmp(self.elf.linker_file.path, linker_path), (
                 'The "%s" linker file already exists and has differing contents.' % linker_path
-        linker = os.path.join('.', linker_basename)
+            )
+        linker = os.path.join(".", linker_basename)
 
         # Construct the library path
         original_file_parent = os.path.dirname(self.path)
-        library_paths = os.environ.get('LD_LIBRARY_PATH', '').split(':')
-        library_paths += ['/lib64', '/usr/lib64', '/lib', '/usr/lib', '/lib32', '/usr/lib32']
+        library_paths = os.environ.get("LD_LIBRARY_PATH", "").split(":")
+        library_paths += [
+            "/lib64",
+            "/usr/lib64",
+            "/lib",
+            "/usr/lib",
+            "/lib32",
+            "/usr/lib32",
+        ]
         for dependency in self.elf.dependencies:
             library_paths.append(os.path.dirname(dependency.path))
         relative_library_paths = []
@@ -567,18 +623,18 @@ class File:
             # Get the actual absolute path for the library directory.
             directory = os.path.normpath(os.path.abspath(directory))
             if self.chroot:
-                directory = os.path.join(self.chroot, os.path.relpath(directory, '/'))
+                directory = os.path.join(self.chroot, os.path.relpath(directory, "/"))
 
             # Convert it into a path relative to the launcher/source.
             relative_library_path = os.path.relpath(directory, original_file_parent)
             if relative_library_path not in relative_library_paths:
                 relative_library_paths.append(relative_library_path)
-        library_path = ':'.join(relative_library_paths)
+        library_path = ":".join(relative_library_paths)
 
         # Determine whether this is a "full" linker (*e.g.* GNU linker).
-        with open(self.elf.linker_file.path, 'rb') as f:
+        with open(self.elf.linker_file.path, "rb") as f:
             linker_content = f.read()
-            full_linker = (linker_content.find(b'inhibit-rpath') > -1)
+            full_linker = linker_content.find(b"inhibit-rpath") > -1
 
         # Try a c launcher first and fallback.
         try:
@@ -586,22 +642,30 @@ class File:
                 raise CompilerNotFoundError()
 
             launcher_content = construct_binary_launcher(
-                linker=linker, library_path=library_path, executable=executable,
-                full_linker=full_linker)
-            with open(source_path, 'wb') as f:
+                linker=linker,
+                library_path=library_path,
+                executable=executable,
+                full_linker=full_linker,
+            )
+            with open(source_path, "wb") as f:
                 f.write(launcher_content)
             tt = source_path
         except CompilerNotFoundError:
             if not shell_launcher:
-                logger.warning((
-                    'Installing either the musl or diet C libraries will result in more efficient '
-                    'launchers (currently using bash fallbacks instead).'
-                ))
+                logger.warning(
+                    (
+                        "Installing either the musl or diet C libraries will result in more efficient "
+                        "launchers (currently using bash fallbacks instead)."
+                    )
+                )
             launcher_content = construct_bash_launcher(
-                linker=linker, library_path=library_path, executable=executable,
-                full_linker=full_linker)
-            tt=source_path+".sh"
-            with open(tt, 'w') as f:
+                linker=linker,
+                library_path=library_path,
+                executable=executable,
+                full_linker=full_linker,
+            )
+            tt = source_path + ".sh"
+            with open(tt, "w") as f:
                 f.write(launcher_content)
         shutil.copymode(self.path, tt)
 
@@ -634,7 +698,7 @@ class File:
     @stored_property
     def destination(self):
         """str: The relative path for the destination of the actual file contents."""
-        return os.path.join('.', 'data', self.hash)
+        return os.path.join(".", "data", self.hash)
 
     @stored_property
     def executable(self):
@@ -648,7 +712,7 @@ class File:
     @stored_property
     def hash(self):
         """str: Computes a hash based on the file content, useful for file deduplication."""
-        with open(self.path, 'rb') as f:
+        with open(self.path, "rb") as f:
             return hashlib.sha256(f.read()).hexdigest()
 
     @stored_property
@@ -660,14 +724,14 @@ class File:
         # The easy ones.
         if self.library or not self.elf or not self.elf.linker_file or not self.executable:
             return False
-        if self.elf.type == 'executable':
+        if self.elf.type == "executable":
             return True
         if self.entry_point:
             return True
 
         # These will hopefully do more good than harm.
-        bin_directories = ['/bin/', '/bin32/', '/bin64/']
-        lib_directories = ['/lib/', '/lib32/', '/lib64/']
+        bin_directories = ["/bin/", "/bin32/", "/bin64/"]
+        lib_directories = ["/lib/", "/lib32/", "/lib64/"]
         in_bin_directory = any(directory in self.path for directory in bin_directories)
         in_lib_directory = any(directory in self.path for directory in lib_directories)
         if in_bin_directory and not in_lib_directory:
@@ -676,12 +740,14 @@ class File:
             return False
 
         # Most libraries will include `.so` in the filename.
-        return re.search(r'\.so(?:\.|$)', self.path)
+        if re.search(r"\.so(?:\.|$)", self.path):
+            return True
+        return False
 
     @stored_property
     def source(self):
         """str: The relative path for the source of the actual file contents."""
-        return os.path.relpath(self.path, '/')
+        return os.path.relpath(self.path, "/")
 
 
 class Bundle:
@@ -693,6 +759,7 @@ class Bundle:
         linker_files (:obj:`set` of :obj:`File`): A list of observed linker files.
         working_directory (str): The root directory where the bundles will be written and packaged.
     """
+
     def __init__(self, working_directory=None, chroot=None):
         """Constructor for the `Bundle` class.
 
@@ -705,7 +772,7 @@ class Bundle:
         """
         self.working_directory = working_directory
         if working_directory is True:
-            self.working_directory = tempfile.mkdtemp(prefix='exodus-bundle-')
+            self.working_directory = tempfile.mkdtemp(prefix="exodus-bundle-")
             # The permissions on the `mkdtemp()` directory will be extremely restricted by default,
             # so we'll modify them to to reflect the current umask.
             umask = os.umask(0)
@@ -755,10 +822,10 @@ class Bundle:
                     # We definitely don't want a launcher for this file, so clear the linker.
                     file.elf.linker_file = None
                 else:
-                    logger.warning((
-                        'An ELF binary without a suitable linker candidate was encountered. '
-                        'Either no linker was found or there are multiple conflicting linkers.'
-                    ))
+                    logger.warning(
+                        "An ELF binary without a suitable linker candidate was encountered. "
+                        "Either no linker was found or there are multiple conflicting linkers."
+                    )
 
         return file
 
@@ -795,21 +862,27 @@ class Bundle:
 
             if file.requires_launcher:
                 # These are kind of complicated, we'll just store the requirements for now.
-                directory_and_linker = (os.path.dirname(file_path), file.elf.linker_file)
+                directory_and_linker = (
+                    os.path.dirname(file_path),
+                    file.elf.linker_file,
+                )
                 files_needing_launchers[directory_and_linker].add(file)
             else:
-                file.symlink(working_directory=self.working_directory, bundle_root=self.bundle_root)
+                file.symlink(
+                    working_directory=self.working_directory,
+                    bundle_root=self.bundle_root,
+                )
 
         # Now we need to write out one unique copy of each linker in each directory where it's
         # required. This is necessary so that `readlink("/proc/self/exe")` will return the correct
         # directory when programs use that to construct relative paths to resources.
-        for ((directory, linker), executable_files) in files_needing_launchers.items():
+        for (directory, linker), executable_files in files_needing_launchers.items():
             # First, we'll find a unique name for the linker in this directory and write it out.
-            desired_linker_path = os.path.join(directory, f'linker-{linker.hash}')
+            desired_linker_path = os.path.join(directory, f"linker-{linker.hash}")
             linker_path = desired_linker_path
             iteration = 2
             while linker_path in file_paths:
-                linker_path = f'{desired_linker_path}-{iteration}'
+                linker_path = f"{desired_linker_path}-{iteration}"
                 iteration += 1
             file_paths.add(linker_path)
             linker_dirname, linker_basename = os.path.split(linker_path)
@@ -822,17 +895,21 @@ class Bundle:
                 # We'll again attempt to find a unique available name, this time for the symlink
                 # to the executable.
                 file_basename = file.entry_point or os.path.basename(file.path)
-                desired_symlink_path = os.path.join(directory, f'{file_basename}-x')
+                desired_symlink_path = os.path.join(directory, f"{file_basename}-x")
                 symlink_path = desired_symlink_path
                 # iteration = 2
                 # while symlink_path in file_paths:
                 #     symlink_path = '%s-%d' % (desired_symlink_path, iteration)
                 #     iteration += 1
                 file_paths.add(symlink_path)
-                symlink_basename = os.path.basename(symlink_path);
-                file.create_launcher(self.working_directory, self.bundle_root,
-                                     linker_basename, symlink_basename,
-                                     shell_launcher=shell_launchers)
+                symlink_basename = os.path.basename(symlink_path)
+                file.create_launcher(
+                    self.working_directory,
+                    self.bundle_root,
+                    linker_basename,
+                    symlink_basename,
+                    shell_launcher=shell_launchers,
+                )
 
     def delete_working_directory(self):
         """Recursively deletes the working directory."""
@@ -856,13 +933,15 @@ class Bundle:
         path = resolve_file_path(path, search_environment_path=entry_point is not None)
         file = next((file for file in self.files if file.path == path), None)
         if file is not None:
-            assert entry_point == file.entry_point or not entry_point or not file.entry_point, \
-                "The entry point property should always persist, but can't conflict."
+            assert (
+                entry_point == file.entry_point or not entry_point or not file.entry_point
+            ), "The entry point property should always persist, but can't conflict."
             file.entry_point = file.entry_point or entry_point
-            assert chroot == file.chroot, 'The chroot must match.'
+            assert chroot == file.chroot, "The chroot must match."
             file.library = file.library or library
-            assert not file.entry_point or not file.library, \
-                "A file can't be both an entry point and a library."
+            assert (
+                not file.entry_point or not file.library
+            ), "A file can't be both an entry point and a library."
             return file
 
         return File(path, entry_point, chroot, library, file_factory)
@@ -870,12 +949,12 @@ class Bundle:
     @property
     def bundle_root(self):
         """str: The root directory of the bundle where the original file structure is mirrored."""
-        path = os.path.join(self.working_directory, 'bundles', self.hash)
+        path = os.path.join(self.working_directory, "bundles", self.hash)
         return os.path.normpath(os.path.abspath(path))
 
     @property
     def hash(self):
         """str: Computes a hash based on the current contents of the bundle."""
         file_hashes = sorted(file.hash for file in self.files)
-        combined_hashes = '\n'.join(file_hashes).encode('utf-8')
+        combined_hashes = "\n".join(file_hashes).encode("utf-8")
         return hashlib.sha256(combined_hashes).hexdigest()
