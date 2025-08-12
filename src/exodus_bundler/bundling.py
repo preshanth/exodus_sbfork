@@ -669,7 +669,7 @@ class File:
                 f.write(launcher_content)
         shutil.copymode(self.path, tt)
 
-        return os.path.normpath(os.path.abspath(source_path))
+        return os.path.normpath(os.path.abspath(tt))
 
     def symlink(self, working_directory, bundle_root):
         """Creates a relative symlink from the `source` to the `destination`.
