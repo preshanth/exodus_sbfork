@@ -541,7 +541,7 @@ class File:
 
         return full_destination
 
-    def create_entry_point(self, working_directory, bundle_root):
+    def create_entry_point(self, working_directory, bundle_root, launcher_path=None):
         """Creates a symlink in `bin/` to the executable or its launcher.
 
         Note:
@@ -549,13 +549,17 @@ class File:
         Args:
             working_directory (str): The root that the `destination` will be joined with.
             bundle_root (str): The root that `source` will be joined with.
+            launcher_path (str, optional): The actual path to the launcher if one was created.
         """
-        source_path = os.path.join(bundle_root, self.source)
+        if launcher_path:
+            source_path = launcher_path
+        else:
+            source_path = os.path.join(bundle_root, self.source)
         bin_directory = os.path.join(working_directory, "bin")
         if not os.path.exists(bin_directory):
             os.makedirs(bin_directory)
         entry_point_path = os.path.join(bin_directory, self.entry_point)
-        relative_destination_path = os.path.relpath(source_path, bin_directory) + ".sh"
+        relative_destination_path = os.path.relpath(source_path, bin_directory)
         os.symlink(relative_destination_path, entry_point_path)
 
     def create_launcher(
@@ -838,14 +842,13 @@ class Bundle:
         """
         file_paths = set()
         files_needing_launchers = defaultdict(set)
+        entry_points_needing_launchers = {}  # Map file to launcher path
         for file in self.files:
             # Store the file path to avoid collisions later.
             file_path = os.path.join(self.bundle_root, file.source)
             file_paths.add(file_path)
 
-            # Create a symlink in `./bin/` if an entry point is specified.
-            if file.entry_point:
-                file.create_entry_point(self.working_directory, self.bundle_root)
+            # Defer entry point creation until after launchers are created
 
             if file.no_symlink:
                 # We'll need to copy the actual file into the bundle subdirectory in this
@@ -872,6 +875,9 @@ class Bundle:
                     working_directory=self.working_directory,
                     bundle_root=self.bundle_root,
                 )
+                # Create entry point for non-launcher files
+                if file.entry_point:
+                    file.create_entry_point(self.working_directory, self.bundle_root)
 
         # Now we need to write out one unique copy of each linker in each directory where it's
         # required. This is necessary so that `readlink("/proc/self/exe")` will return the correct
@@ -903,13 +909,20 @@ class Bundle:
                 #     iteration += 1
                 file_paths.add(symlink_path)
                 symlink_basename = os.path.basename(symlink_path)
-                file.create_launcher(
+                launcher_path = file.create_launcher(
                     self.working_directory,
                     self.bundle_root,
                     linker_basename,
                     symlink_basename,
                     shell_launcher=shell_launchers,
                 )
+                # Store launcher path for entry point creation
+                if file.entry_point:
+                    entry_points_needing_launchers[file] = launcher_path
+
+        # Create entry points for files that needed launchers
+        for file, launcher_path in entry_points_needing_launchers.items():
+            file.create_entry_point(self.working_directory, self.bundle_root, launcher_path)
 
     def delete_working_directory(self):
         """Recursively deletes the working directory."""
