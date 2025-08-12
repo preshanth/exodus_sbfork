@@ -60,7 +60,10 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "W"]
-ignore = ["E501"]
+ignore = ["E501"]  # Ignore line length for now
+
+[tool.ruff.format]
+line-ending = "lf"
 [tool.pytest.ini_options]
 norecursedirs = [".git", ".tox", ".env", "dist", "build"]
 python_files = ["test_*.py", "*_test.py", "tests.py"]
