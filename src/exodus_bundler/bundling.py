@@ -130,9 +130,9 @@ def create_unpackaged_bundle(
     try:
         # Sanitize the inputs.
         assert len(executables), "No executables were specified."
-        assert len(executables) >= len(
-            rename
-        ), "More renamed options were included than executables."
+        assert len(executables) >= len(rename), (
+            "More renamed options were included than executables."
+        )
         # Pad the rename's with `True` so that `entry_point` can be specified.
         entry_points = rename + [True for i in range(len(executables) - len(rename))]
 
@@ -946,15 +946,15 @@ class Bundle:
         path = resolve_file_path(path, search_environment_path=entry_point is not None)
         file = next((file for file in self.files if file.path == path), None)
         if file is not None:
-            assert (
-                entry_point == file.entry_point or not entry_point or not file.entry_point
-            ), "The entry point property should always persist, but can't conflict."
+            assert entry_point == file.entry_point or not entry_point or not file.entry_point, (
+                "The entry point property should always persist, but can't conflict."
+            )
             file.entry_point = file.entry_point or entry_point
             assert chroot == file.chroot, "The chroot must match."
             file.library = file.library or library
-            assert (
-                not file.entry_point or not file.library
-            ), "A file can't be both an entry point and a library."
+            assert not file.entry_point or not file.library, (
+                "A file can't be both an entry point and a library."
+            )
             return file
 
         return File(path, entry_point, chroot, library, file_factory)
