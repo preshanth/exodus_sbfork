@@ -67,7 +67,7 @@ def create_bundle(executables, output, tarball=False, rename=[], chroot=None, ad
 
         # Configure the appropriate output mechanism.
         if output_filename == '-':
-            output_file = getattr(sys.stdout, 'buffer', sys.stdout)
+            output_file = sys.stdout.buffer
         else:
             output_file = open(output_filename, 'wb')
 
@@ -86,9 +86,9 @@ def create_bundle(executables, output, tarball=False, rename=[], chroot=None, ad
             output_file.write(tar_stream.getvalue())
 
         # Write out the success message.
-        logger.info('Successfully created "%s".' % output_filename)
+        logger.info(f'Successfully created "{output_filename}".')
         return True
-    except:  # noqa: E722
+    except Exception:
         raise
     finally:
         if root_directory:
@@ -146,7 +146,7 @@ def create_unpackaged_bundle(executables, rename=[], chroot=None, add=[], no_sym
         bundle.create_bundle(shell_launchers=shell_launchers)
 
         return bundle.working_directory
-    except:  # noqa: E722
+    except Exception:
         bundle.delete_working_directory()
         raise
 
@@ -154,7 +154,7 @@ def create_unpackaged_bundle(executables, rename=[], chroot=None, add=[], no_sym
 def detect_elf_binary(filename):
     """Returns `True` if a file has an ELF header."""
     if not os.path.exists(filename):
-        raise MissingFileError('The "%s" file was not found.' % filename)
+        raise MissingFileError(f'The "{filename}" file was not found.')
 
     with open(filename, 'rb') as f:
         first_four_bytes = f.read(4)
@@ -191,7 +191,7 @@ def resolve_binary(binary):
             if os.path.exists(absolute_binary_path):
                 break
         else:
-            raise MissingFileError('The "%s" binary could not be found in $PATH.' % binary)
+            raise MissingFileError(f'The "{binary}" binary could not be found in $PATH.')
     return absolute_binary_path
 
 
@@ -208,23 +208,23 @@ def resolve_file_path(path, search_environment_path=False):
     if search_environment_path:
         path = resolve_binary(path)
     if not os.path.exists(path):
-        raise MissingFileError('The "%s" file was not found.' % path)
+        raise MissingFileError(f'The "{path}" file was not found.')
     if os.path.isdir(path):
-        raise UnexpectedDirectoryError('"%s" is a directory, not a file.' % path)
+        raise UnexpectedDirectoryError(f'"{path}" is a directory, not a file.')
     return os.path.normpath(os.path.abspath(path))
 
 
 def run_ldd(ldd, binary):
     """Runs `ldd` and gets the combined stdout/stderr output as a list of lines."""
     if not detect_elf_binary(resolve_binary(binary)):
-        raise InvalidElfBinaryError('The "%s" file is not a binary ELF file.' % binary)
+        raise InvalidElfBinaryError(f'The "{binary}" file is not a binary ELF file.')
 
     process = Popen([ldd, binary], stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate()
     return stdout.decode('utf-8').split('\n') + stderr.decode('utf-8').split('\n')
 
 
-class stored_property(object):
+class stored_property:
     """Simple decorator for a class property that will be cached indefinitely."""
     def __init__(self, function):
         self.__doc__ = getattr(function, '__doc__')
@@ -235,7 +235,7 @@ class stored_property(object):
         return result
 
 
-class Elf(object):
+class Elf:
     """Parses basic attributes from the ELF header of a file.
 
     Attributes:
@@ -256,7 +256,7 @@ class Elf(object):
             file_factory (function, optional): A function to use when creating new `File` instances.
         """
         if not os.path.exists(path):
-            raise MissingFileError('The "%s" file was not found.' % path)
+            raise MissingFileError(f'The "{path}" file was not found.')
         self.path = path
         self.chroot = chroot
         self.file_factory = file_factory or File
@@ -265,7 +265,7 @@ class Elf(object):
             # Make sure that this is actually an ELF binary.
             first_four_bytes = f.read(4)
             if first_four_bytes != b'\x7fELF':
-                raise InvalidElfBinaryError('The "%s" file is not a binary ELF file.' % path)
+                raise InvalidElfBinaryError(f'The "{path}" file is not a binary ELF file.')
 
             # Determine whether this is a 32-bit or 64-bit file.
             format_byte = f.read(1)
@@ -357,7 +357,7 @@ class Elf(object):
         return hash(self.path)
 
     def __repr__(self):
-        return '<Elf(path="%s")>' % self.path
+        return f'<Elf(path="{self.path}")>'
 
     def find_direct_dependencies(self, linker_file=None):
         """Runs the specified linker and returns a set of the dependencies as `File` instances."""
@@ -414,7 +414,7 @@ class Elf(object):
         return self.find_direct_dependencies()
 
 
-class File(object):
+class File:
     """Represents a file on disk and provides access to relevant properties and actions.
 
     Note:
@@ -474,7 +474,7 @@ class File(object):
         return hash((self.path, self.entry_point))
 
     def __repr__(self):
-        return '<File(path="%s")>' % self.path
+        return f'<File(path="{self.path}")'
 
     def copy(self, working_directory):
         """Copies the file to a location based on its `destination` property.
@@ -683,7 +683,7 @@ class File(object):
         return os.path.relpath(self.path, '/')
 
 
-class Bundle(object):
+class Bundle:
     """A collection of files to be included in a bundle and utilities for creating bundles.
 
     Attributes:
@@ -804,11 +804,11 @@ class Bundle(object):
         # directory when programs use that to construct relative paths to resources.
         for ((directory, linker), executable_files) in files_needing_launchers.items():
             # First, we'll find a unique name for the linker in this directory and write it out.
-            desired_linker_path = os.path.join(directory, 'linker-%s' % linker.hash)
+            desired_linker_path = os.path.join(directory, f'linker-{linker.hash}')
             linker_path = desired_linker_path
             iteration = 2
             while linker_path in file_paths:
-                linker_path = '%s-%d' % (desired_linker_path, iteration)
+                linker_path = f'{desired_linker_path}-{iteration}'
                 iteration += 1
             file_paths.add(linker_path)
             linker_dirname, linker_basename = os.path.split(linker_path)
@@ -821,8 +821,7 @@ class Bundle(object):
                 # We'll again attempt to find a unique available name, this time for the symlink
                 # to the executable.
                 file_basename = file.entry_point or os.path.basename(file.path)
-                #desired_symlink_path = os.path.join(directory, '%s-x' % file_basename)
-                desired_symlink_path = os.path.join(directory, '%s' % file_basename)
+                desired_symlink_path = os.path.join(directory, f'{file_basename}-x')
                 symlink_path = desired_symlink_path
                 # iteration = 2
                 # while symlink_path in file_paths:

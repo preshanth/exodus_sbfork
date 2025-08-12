@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-from __future__ import absolute_import
-from __future__ import print_function
 
 from glob import glob
 from os.path import basename
@@ -13,7 +11,7 @@ from setuptools import setup
 
 setup(
     name='exodus-bundler',
-    version='2.0.4',
+    version='3.0.0',
     license='BSD',
     platforms=['Linux'],
     description='The exodus application bundler.',
@@ -37,18 +35,11 @@ setup(
         'License :: OSI Approved :: BSD License',
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.0',
-        'Programming Language :: Python :: 3.1',
-        'Programming Language :: Python :: 3.2',
-        'Programming Language :: Python :: 3.3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
         'Topic :: System :: Archiving :: Packaging',
@@ -57,6 +48,7 @@ setup(
     keywords=[
         'linux', 'executable', 'elf', 'binaries',
     ],
+    python_requires='>=3.10',
     install_requires=[
     ],
     entry_points={

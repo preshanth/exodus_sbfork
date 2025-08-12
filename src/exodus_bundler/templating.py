@@ -12,7 +12,7 @@ template_directory = os.path.join(parent_directory, 'templates')
 
 def render_template(string, **context):
     for key, value in context.items():
-        string = string.replace('{{%s}}' % key, value)
+        string = string.replace(f'{{{{{key}}}}}', value)
     return string
 
 

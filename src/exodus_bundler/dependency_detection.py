@@ -6,7 +6,7 @@ import subprocess
 from exodus_bundler.launchers import find_executable
 
 
-class PackageManager(object):
+class PackageManager:
     """Base class representing a package manager.
 
     The class level attributes can be overwritten in derived classes to customize the behavior.

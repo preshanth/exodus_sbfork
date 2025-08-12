@@ -3,8 +3,8 @@
 the proper linker and library paths."""
 import os
 import re
+import shutil
 import tempfile
-from distutils.spawn import find_executable as find_executable_original
 from subprocess import PIPE
 from subprocess import Popen
 
@@ -23,7 +23,7 @@ def find_executable(binary_name, skip_original_for_testing=False):
     # This won't be set on Alpine Linux, but it's required for the `find_executable()` calls.
     if 'PATH' not in os.environ:
         os.environ['PATH'] = '/bin/:/usr/bin/'
-    executable = find_executable_original(binary_name)
+    executable = shutil.which(binary_name)
     if executable and not skip_original_for_testing:
         return executable
     # Try to find it within the same bundle if it's not actually in the PATH.
@@ -41,6 +41,11 @@ def find_executable(binary_name, skip_original_for_testing=False):
                                                     bin_directory, binary_name)
                 if os.path.exists(candidate_executable):
                     return candidate_executable
+                # Also check for shell launcher version (.sh extension)
+                candidate_executable_sh = candidate_executable + '.sh'
+                if os.path.exists(candidate_executable_sh):
+                    return candidate_executable_sh
+    return None
 
 
 def compile(code):
@@ -74,7 +79,7 @@ def compile_helper(code, initial_args):
         process = Popen(args, stdout=PIPE, stderr=PIPE)
         stdout, stderr = process.communicate()
         assert process.returncode == 0, \
-            'There was an error compiling: %s' % stderr.decode('utf-8')
+            f'There was an error compiling: {stderr.decode("utf-8")}'
 
         with open(output_filename, 'rb') as output_file:
             return output_file.read()

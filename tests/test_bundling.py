@@ -97,7 +97,7 @@ def test_bundle_root():
         assert bundle.hash in bundle.bundle_root, 'Bundle path should include the hash.'
         assert bundle.bundle_root.startswith(bundle.working_directory), \
             'The bundle root should be a subdirectory of the working directory.'
-    except:  # noqa: E722
+    except Exception:
         raise
     finally:
         bundle.delete_working_directory()
@@ -330,7 +330,7 @@ def test_file_symlink():
         symlink = file.symlink(bundle.working_directory, bundle.bundle_root)
         assert os.path.islink(symlink), 'A symlink should have been created.'
         assert os.path.exists(symlink), 'The symlink should point to the actual file.'
-    except:  # noqa: E722
+    except Exception:
         raise
     finally:
         bundle.delete_working_directory()
@@ -383,7 +383,7 @@ def test_run_ldd():
 
 
 def test_stored_property():
-    class Incrementer(object):
+    class Incrementer:
         def __init__(self):
             self.i = 0
 
