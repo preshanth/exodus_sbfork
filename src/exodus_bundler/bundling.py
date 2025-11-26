@@ -901,7 +901,7 @@ class Bundle:
                 # We'll again attempt to find a unique available name, this time for the symlink
                 # to the executable.
                 file_basename = file.entry_point or os.path.basename(file.path)
-                desired_symlink_path = os.path.join(directory, f"{file_basename}-x")
+                desired_symlink_path = os.path.join(directory, file_basename)
                 symlink_path = desired_symlink_path
                 # iteration = 2
                 # while symlink_path in file_paths:
