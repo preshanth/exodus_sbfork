@@ -20,7 +20,9 @@ from exodus_bundler.launchers import find_executable
 parent_directory = os.path.dirname(os.path.realpath(__file__))
 chroot = os.path.join(parent_directory, "data", "binaries", "chroot")
 echo_args_glibc_32 = os.path.join(chroot, "bin", "echo-args-glibc-32")
-fizz_buzz_source_file = os.path.join(parent_directory, "data", "binaries", "fizz-buzz.c")
+fizz_buzz_source_file = os.path.join(
+    parent_directory, "data", "binaries", "fizz-buzz.c"
+)
 
 
 def test_construct_bash_launcher():
@@ -71,11 +73,13 @@ def test_find_executable():
         binary_symlink = os.path.join(root_directory, "bin", binary_name)
         binary_path = os.path.realpath(binary_symlink)
         # This is a pretend directory, but it doesn't check.
-        launchers.parent_directory = os.path.join(os.path.dirname(binary_path), "somewhere", "else")
-        os.environ["PATH"] = os.path.dirname(echo_args_glibc_32)
-        assert find_executable(binary_name, skip_original_for_testing=True) == binary_path, (
-            'It should have found the binary path "%s".' % binary_path
+        launchers.parent_directory = os.path.join(
+            os.path.dirname(binary_path), "somewhere", "else"
         )
+        os.environ["PATH"] = os.path.dirname(echo_args_glibc_32)
+        assert (
+            find_executable(binary_name, skip_original_for_testing=True) == binary_path
+        ), ('It should have found the binary path "%s".' % binary_path)
     finally:
         launchers.parent_directory = original_parent_directory
         os.environ["PATH"] = original_environment

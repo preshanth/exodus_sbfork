@@ -41,12 +41,17 @@ def find_executable(binary_name, skip_original_for_testing=False):
                 candidate_executable = os.path.join(
                     directory, basename, bin_directory, binary_name
                 )
-                if os.path.exists(candidate_executable):
-                    return candidate_executable
+                # Check for binary launcher version (.bin extension)
+                candidate_executable_bin = candidate_executable + ".bin"
+                if os.path.exists(candidate_executable_bin):
+                    return candidate_executable_bin
                 # Also check for shell launcher version (.sh extension)
                 candidate_executable_sh = candidate_executable + ".sh"
                 if os.path.exists(candidate_executable_sh):
                     return candidate_executable_sh
+                # Finally check for exact match (could be a symlink)
+                if os.path.exists(candidate_executable):
+                    return candidate_executable
     return None
 
 
