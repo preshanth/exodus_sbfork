@@ -70,9 +70,7 @@ def create_bundle(
         # Populate the filename template.
         output_filename = render_template(
             output,
-            executables=(
-                "-".join(os.path.basename(executable) for executable in executables)
-            ),
+            executables=("-".join(os.path.basename(executable) for executable in executables)),
             extension=("tgz" if tarball else "sh"),
         )
 
@@ -90,18 +88,14 @@ def create_bundle(
         # Construct the installation script and write it out.
         if not tarball:
             if output_filename == "-":
-                base64_encoded_tarball = base64.b64encode(tar_stream.getvalue()).decode(
-                    "utf-8"
-                )
+                base64_encoded_tarball = base64.b64encode(tar_stream.getvalue()).decode("utf-8")
                 script_content = render_template_file(
                     "install-bundle-noninteractive.sh",
                     base64_encoded_tarball=base64_encoded_tarball,
                 )
                 output_file.write(script_content.encode("utf-8"))
             else:
-                output_file.write(
-                    render_template_file("install-bundle.sh").encode("utf-8")
-                )
+                output_file.write(render_template_file("install-bundle.sh").encode("utf-8"))
                 output_file.write(tar_stream.getvalue())
         else:
             # Or just write out the tarball.
@@ -136,9 +130,9 @@ def create_unpackaged_bundle(
     try:
         # Sanitize the inputs.
         assert len(executables), "No executables were specified."
-        assert len(executables) >= len(
-            rename
-        ), "More renamed options were included than executables."
+        assert len(executables) >= len(rename), (
+            "More renamed options were included than executables."
+        )
         # Pad the rename's with `True` so that `entry_point` can be specified.
         entry_points = rename + [True for i in range(len(executables) - len(rename))]
 
@@ -153,8 +147,7 @@ def create_unpackaged_bundle(
                 if not dependency_paths:
                     raise DependencyDetectionError(
                         (
-                            'Automatic dependency detection failed. Either "%s" '
-                            % file.path
+                            'Automatic dependency detection failed. Either "%s" ' % file.path
                             + "is not tracked by your package manager, or your operating system "
                             + "is not currently compatible with the `--detect` option. If not, please "
                             + "create an issue at https://github.com/intoli/exodus and we'll try our "
@@ -220,15 +213,11 @@ def resolve_binary(binary):
     absolute_binary_path = os.path.normpath(os.path.abspath(binary))
     if not os.path.exists(absolute_binary_path):
         for path in os.getenv("PATH", "/bin/:/usr/bin/").split(os.pathsep):
-            absolute_binary_path = os.path.normpath(
-                os.path.abspath(os.path.join(path, binary))
-            )
+            absolute_binary_path = os.path.normpath(os.path.abspath(os.path.join(path, binary)))
             if os.path.exists(absolute_binary_path):
                 break
         else:
-            raise MissingFileError(
-                f'The "{binary}" binary could not be found in $PATH.'
-            )
+            raise MissingFileError(f'The "{binary}" binary could not be found in $PATH.')
     return absolute_binary_path
 
 
@@ -304,9 +293,7 @@ class Elf:
             # Make sure that this is actually an ELF binary.
             first_four_bytes = f.read(4)
             if first_four_bytes != b"\x7fELF":
-                raise InvalidElfBinaryError(
-                    f'The "{path}" file is not a binary ELF file.'
-                )
+                raise InvalidElfBinaryError(f'The "{path}" file is not a binary ELF file.')
 
             # Determine whether this is a 32-bit or 64-bit file.
             format_byte = f.read(1)
@@ -314,8 +301,7 @@ class Elf:
             if not self.bits:
                 raise UnsupportedArchitectureError(
                     (
-                        'The "%s" file does not appear to be either 32 or 64 bits. '
-                        % path
+                        'The "%s" file does not appear to be either 32 or 64 bits. ' % path
                         + "Other architectures are not currently supported, but you can open an "
                         + "issue at https://github.com/intoli/exodus stating your use-case and "
                         + "support might get extended in the future."
@@ -342,9 +328,7 @@ class Elf:
             # Determine the type of the binary.
             f.seek(hex(b"\x10"))
             e_type = hex(f.read(2))
-            self.type = {1: "relocatable", 2: "executable", 3: "shared", 4: "core"}[
-                e_type
-            ]
+            self.type = {1: "relocatable", 2: "executable", 3: "shared", 4: "core"}[e_type]
 
             # Find the program header offset.
             e_phoff_start = {32: hex(b"\x1c"), 64: hex(b"\x20")}[self.bits]
@@ -375,17 +359,13 @@ class Elf:
                     continue
 
                 # Determine the offset for the segment.
-                p_offset_start = (
-                    header_start + {32: hex(b"\04"), 64: hex(b"\x08")}[self.bits]
-                )
+                p_offset_start = header_start + {32: hex(b"\04"), 64: hex(b"\x08")}[self.bits]
                 p_offset_length = {32: 4, 64: 8}[self.bits]
                 f.seek(p_offset_start)
                 p_offset = hex(f.read(p_offset_length))
 
                 # Determine the size of the segment.
-                p_filesz_start = (
-                    header_start + {32: hex(b"\x10"), 64: hex(b"\x20")}[self.bits]
-                )
+                p_filesz_start = header_start + {32: hex(b"\x10"), 64: hex(b"\x20")}[self.bits]
                 p_filesz_length = {32: 4, 64: 8}[self.bits]
                 f.seek(p_filesz_start)
                 p_filesz = hex(f.read(p_filesz_length))
@@ -401,9 +381,7 @@ class Elf:
                 assert self.linker_file is None, "More than one linker found."
                 linker_path = segment[:-1].decode("ascii")
                 if chroot:
-                    linker_path = os.path.join(
-                        chroot, os.path.relpath(linker_path, "/")
-                    )
+                    linker_path = os.path.join(chroot, os.path.relpath(linker_path, "/"))
                 self.linker_file = self.file_factory(linker_path, chroot=self.chroot)
 
     def __eq__(self, other):
@@ -432,9 +410,7 @@ class Elf:
             directories = []
             for directory in ld_library_path.split(":"):
                 if os.path.isabs(directory):
-                    directory = os.path.join(
-                        self.chroot, os.path.relpath(directory, "/")
-                    )
+                    directory = os.path.join(self.chroot, os.path.relpath(directory, "/"))
                 directories.append(directory)
             ld_library_path = ":".join(directories)
             environment["LD_LIBRARY_PATH"] = ld_library_path
@@ -449,16 +425,13 @@ class Elf:
             env=environment,
         )
         stdout, stderr = process.communicate()
-        combined_output = stdout.decode("utf-8").split("\n") + stderr.decode(
-            "utf-8"
-        ).split("\n")
+        combined_output = stdout.decode("utf-8").split("\n") + stderr.decode("utf-8").split("\n")
         # Note that we're explicitly adding the linker because when we invoke it as `ldd` we can't
         # extract the real path from the trace output. Even if it were here twice, it would be
         # deduplicated though the use of a set.
         filenames = parse_dependencies_from_ldd_output(combined_output) + [linker_path]
         return set(
-            self.file_factory(filename, chroot=self.chroot, library=True)
-            for filename in filenames
+            self.file_factory(filename, chroot=self.chroot, library=True) for filename in filenames
         )
 
     @stored_property
@@ -500,9 +473,7 @@ class File:
         path (str): The absolute normalized path to the file on disk.
     """
 
-    def __init__(
-        self, path, entry_point=None, chroot=None, library=False, file_factory=None
-    ):
+    def __init__(self, path, entry_point=None, chroot=None, library=False, file_factory=None):
         """Constructor for the `File` class.
 
         Note:
@@ -517,9 +488,7 @@ class File:
             file_factory (function, optional): A function to use when creating new `File` instances.
         """
         # Find the full path to the file.
-        self.path = resolve_file_path(
-            path, search_environment_path=(entry_point is not None)
-        )
+        self.path = resolve_file_path(path, search_environment_path=(entry_point is not None))
 
         # Set the entry point for the file.
         if entry_point is True:
@@ -636,8 +605,7 @@ class File:
             shutil.copy(self.elf.linker_file.path, linker_path)
         else:
             assert filecmp.cmp(self.elf.linker_file.path, linker_path), (
-                'The "%s" linker file already exists and has differing contents.'
-                % linker_path
+                'The "%s" linker file already exists and has differing contents.' % linker_path
             )
         linker = os.path.join(".", linker_basename)
 
@@ -761,12 +729,7 @@ class File:
         # as shared libraries, and many mostly-libraries are executable (*e.g.* glibc).
 
         # The easy ones.
-        if (
-            self.library
-            or not self.elf
-            or not self.elf.linker_file
-            or not self.executable
-        ):
+        if self.library or not self.elf or not self.elf.linker_file or not self.executable:
             return False
         if self.elf.type == "executable":
             return True
@@ -962,18 +925,14 @@ class Bundle:
 
         # Create entry points for files that needed launchers
         for file, launcher_path in entry_points_needing_launchers.items():
-            file.create_entry_point(
-                self.working_directory, self.bundle_root, launcher_path
-            )
+            file.create_entry_point(self.working_directory, self.bundle_root, launcher_path)
 
     def delete_working_directory(self):
         """Recursively deletes the working directory."""
         shutil.rmtree(self.working_directory)
         self.working_directory = None
 
-    def file_factory(
-        self, path, entry_point=None, chroot=None, library=False, file_factory=None
-    ):
+    def file_factory(self, path, entry_point=None, chroot=None, library=False, file_factory=None):
         """Either creates a new `File`, or updates and returns one from `files`.
 
         This method can be used in place of `File.__init__()` when it is known that the `File`
@@ -990,17 +949,15 @@ class Bundle:
         path = resolve_file_path(path, search_environment_path=entry_point is not None)
         file = next((file for file in self.files if file.path == path), None)
         if file is not None:
-            assert (
-                entry_point == file.entry_point
-                or not entry_point
-                or not file.entry_point
-            ), "The entry point property should always persist, but can't conflict."
+            assert entry_point == file.entry_point or not entry_point or not file.entry_point, (
+                "The entry point property should always persist, but can't conflict."
+            )
             file.entry_point = file.entry_point or entry_point
             assert chroot == file.chroot, "The chroot must match."
             file.library = file.library or library
-            assert (
-                not file.entry_point or not file.library
-            ), "A file can't be both an entry point and a library."
+            assert not file.entry_point or not file.library, (
+                "A file can't be both an entry point and a library."
+            )
             return file
 
         return File(path, entry_point, chroot, library, file_factory)

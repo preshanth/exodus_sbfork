@@ -38,9 +38,7 @@ def find_executable(binary_name, skip_original_for_testing=False):
             for bin_directory in os.environ["PATH"].split(":"):
                 if os.path.isabs(bin_directory):
                     bin_directory = os.path.relpath(bin_directory, "/")
-                candidate_executable = os.path.join(
-                    directory, basename, bin_directory, binary_name
-                )
+                candidate_executable = os.path.join(directory, basename, bin_directory, binary_name)
                 # Check for binary launcher version (.bin extension)
                 candidate_executable_bin = candidate_executable + ".bin"
                 if os.path.exists(candidate_executable_bin):
@@ -85,9 +83,7 @@ def compile_helper(code, initial_args):
         args = initial_args + ["-static", "-O3", input_filename, "-o", output_filename]
         process = Popen(args, stdout=PIPE, stderr=PIPE)
         stdout, stderr = process.communicate()
-        assert (
-            process.returncode == 0
-        ), f"There was an error compiling: {stderr.decode('utf-8')}"
+        assert process.returncode == 0, f"There was an error compiling: {stderr.decode('utf-8')}"
 
         with open(output_filename, "rb") as output_file:
             return output_file.read()

@@ -42,9 +42,7 @@ class PackageManager:
             match = re.search(self.list_regex, line.strip())
             if match:
                 dependency_path = match.groups()[0]
-                if os.path.exists(dependency_path) and not os.path.isdir(
-                    dependency_path
-                ):
+                if os.path.exists(dependency_path) and not os.path.isdir(dependency_path):
                     dependencies.append(dependency_path)
 
         return dependencies
@@ -66,9 +64,7 @@ class PackageManager:
     @property
     def cache_exists(self):
         """Whether or not the expected package cache directory exists."""
-        return os.path.exists(self.cache_directory) and os.path.isdir(
-            self.cache_directory
-        )
+        return os.path.exists(self.cache_directory) and os.path.isdir(self.cache_directory)
 
     @property
     def commands_exist(self):

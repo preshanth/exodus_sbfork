@@ -89,24 +89,14 @@ def extract_paths(content, existing_only=True):
     # Extract files from `open()`, `openat()`, and `exec()` calls.
     paths = set()
     for line in lines:
-        path = (
-            extract_exec_path(line)
-            or extract_open_path(line)
-            or extract_stat_path(line)
-        )
+        path = extract_exec_path(line) or extract_open_path(line) or extract_stat_path(line)
         if path:
-            blacklisted = any(
-                path.startswith(directory) for directory in blacklisted_directories
-            )
+            blacklisted = any(path.startswith(directory) for directory in blacklisted_directories)
             if not blacklisted:
                 if not existing_only:
                     paths.add(path)
                     continue
-                if (
-                    os.path.exists(path)
-                    and os.access(path, os.R_OK)
-                    and not os.path.isdir(path)
-                ):
+                if os.path.exists(path) and os.access(path, os.R_OK) and not os.path.isdir(path):
                     paths.add(path)
 
     return list(paths)
