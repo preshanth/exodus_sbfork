@@ -94,7 +94,9 @@ def parse_args(args=None, namespace=None):
         ),
     )
 
-    parser.add_argument("-q", "--quiet", action="store_true", help=("Suppress warning messages."))
+    parser.add_argument(
+        "-q", "--quiet", action="store_true", help=("Suppress warning messages.")
+    )
 
     parser.add_argument(
         "-r",
